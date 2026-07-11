@@ -1,4 +1,4 @@
-name: Temporary OPUS translation test
+name: Temporary Transformers.js runtime package
 
 on:
   push:
@@ -12,63 +12,17 @@ permissions:
   contents: read
 
 jobs:
-  translate:
+  package:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: tmp/model-fetch-20260711
-      - name: Download OPUS Spanish-English model
-        shell: bash
+      - name: Install Transformers.js runtime
         run: |
-          set -euo pipefail
-          mkdir -p opus/onnx
-          base="https://huggingface.co/Xenova/opus-mt-es-en/resolve/main"
-          for f in config.json generation_config.json source.spm target.spm tokenizer.json tokenizer_config.json vocab.json special_tokens_map.json quantize_config.json; do
-            curl -fL --retry 5 --retry-delay 3 "$base/$f?download=true" -o "opus/$f"
-          done
-          curl -fL --retry 5 --retry-delay 3 "$base/onnx/encoder_model_quantized.onnx?download=true" -o opus/onnx/encoder_model_quantized.onnx
-          curl -fL --retry 5 --retry-delay 3 "$base/onnx/decoder_model_merged_quantized.onnx?download=true" -o opus/onnx/decoder_model_merged_quantized.onnx
-      - name: Install Transformers.js
-        run: npm install @huggingface/transformers@3.7.2
-      - name: Translate samples
-        shell: bash
-        run: |
-          cat > translate.mjs <<'JS'
-          import fs from 'node:fs';
-          import { pipeline, env } from '@huggingface/transformers';
-          env.allowRemoteModels = false;
-          env.localModelPath = '.';
-          const inputs=JSON.parse(fs.readFileSync('tmp_translation_inputs.json','utf8'));
-          const translator=await pipeline('translation','opus',{dtype:'q8'});
-          function splitSentences(s){
-            const a=s.match(/[^.!?;]+(?:[.!?;]+|$)/gu) || [s];
-            return a.map(x=>x.trim()).filter(Boolean);
-          }
-          function repair(src,t){
-            let x=t.replaceAll('EMQRCTNet','EMQR–CTNet').replaceAll('EMQR-CTNet','EMQR–CTNet');
-            if(/\bcarta(s)?\b/iu.test(src)) x=x.replace(/\bletter(s)?\b/giu,(_,p)=>p?'charts':'chart');
-            if(/\bfuente(s)?\b/iu.test(src)) x=x.replace(/\bfont(s)?\b/giu,(_,p)=>p?'sources':'source');
-            if(/\bcomparecencia\b/iu.test(src)) x=x.replace(/\bappearance\b/giu,'appearing');
-            if(/\bendofuntor/iu.test(src)) x=x.replace(/\b(power|function|functor) generator\b/giu,'generating endofunctor').replace(/\bendofunctor generator\b/giu,'generating endofunctor');
-            return x.replace(/\birrevatability\b/giu,'irrefutability').replace(/\bcollebra\b/giu,'coalgebra');
-          }
-          const output=[];
-          for(const item of inputs){
-            const pieces=[];
-            for(const s of splitSentences(item.source)){
-              const r=await translator(s,{max_new_tokens:512,num_beams:5});
-              pieces.push(repair(s,r[0].translation_text));
-            }
-            const text=pieces.join(' ');
-            output.push({...item,text});
-            console.log(item.id,text);
-          }
-          fs.writeFileSync('translation_output.json',JSON.stringify(output,null,2));
-          JS
-          node translate.mjs
+          npm init -y
+          npm install @huggingface/transformers@3.7.2
+          tar -czf transformers-js-runtime.tar.gz node_modules package.json package-lock.json
+          ls -lh transformers-js-runtime.tar.gz
       - uses: actions/upload-artifact@v4
         with:
-          name: opus-sample-output
-          path: translation_output.json
+          name: transformers-js-runtime
+          path: transformers-js-runtime.tar.gz
           retention-days: 1

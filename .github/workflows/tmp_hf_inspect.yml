@@ -31,7 +31,7 @@ jobs:
           curl -fL --retry 5 --retry-delay 3 "$base/onnx/decoder_model_merged_q4.onnx?download=true" -o nllb/onnx/decoder_model_merged_q4.onnx
       - name: Install Transformers.js
         run: npm install @huggingface/transformers@3.7.2
-      - name: Translate samples
+      - name: Translate samples sentence by sentence
         shell: bash
         run: |
           cat > translate.mjs <<'JS'
@@ -39,44 +39,38 @@ jobs:
           import { pipeline, env } from '@huggingface/transformers';
           env.allowRemoteModels = false;
           env.localModelPath = '.';
-          const glossary = [
-            ['reciprocidad cuerda–brana','string–brane reciprocity'],['reciprocidad cuerda-brana','string–brane reciprocity'],
-            ['irrebatibilidad endógena','endogenous irrefutability'],['sitio de comparecencia','site of appearing'],
-            ['residuo autogenerativo','self-generative residue'],['residuos absorbibles','absorbable residues'],
-            ['residuo absorbible','absorbable residue'],['clausura transfinita','transfinite closure'],
-            ['cierre transfinito','transfinite closure'],['coalgebra final','final coalgebra'],
-            ['ley distributiva residual','residual distributive law'],['métrica de alojamiento','accommodation metric'],
-            ['teorema maestro','master theorem'],['segunda variación','second variation'],['plano activo','active plane'],
-            ['campo antisimétrico','antisymmetric field'],['no factorización','non-factorization'],
-            ['producto fibrado','fiber product'],['cambio de carta','change of chart'],['cambios de carta','changes of chart'],
-            ['teoría de cuerdas','string theory'],['comparecencia','appearing'],['recartografía','recharting'],
-            ['recartografías','rechartings'],['alojamiento','accommodation'],['absorbibilidad','absorbability'],
-            ['clausura','closure'],['cierre','closure'],['residuos','residues'],['residuo','residue'],
-            ['cuerdas','strings'],['cuerda','string'],['branas','branes'],['brana','brane'],
-            ['carta','chart'],['cartas','charts'],['ente','entity'],['entes','entities'],
-            ['endofuntor','endofunctor'],['operada','operad'],['mónada','monad'],['comónada','comonad'],
-            ['holonomía','holonomy'],['fibrado','bundle'],['pegado','gluing']
-          ];
-          function pre(s){
-            let x=s;
-            for(const [a,b] of glossary.sort((u,v)=>v[0].length-u[0].length)){
-              x=x.replace(new RegExp(a.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'giu'),b);
-            }
-            return x;
-          }
           const inputs=JSON.parse(fs.readFileSync('tmp_translation_inputs.json','utf8'));
           const translator=await pipeline('translation','nllb',{dtype:'q4'});
+          function splitSentences(s){
+            const a=s.match(/[^.!?;]+(?:[.!?;]+|$)/gu) || [s];
+            return a.map(x=>x.trim()).filter(Boolean);
+          }
+          function repair(src,t){
+            let x=t.replaceAll('EMQRCTNet','EMQR–CTNet').replaceAll('EMQR-CTNet','EMQR–CTNet');
+            if(/\bcarta(s)?\b/iu.test(src)) x=x.replace(/\bletter(s)?\b/giu,(_,p)=>p?'charts':'chart');
+            if(/\bfuente(s)?\b/iu.test(src)) x=x.replace(/\bfont(s)?\b/giu,(_,p)=>p?'sources':'source');
+            if(/\bcomparecencia\b/iu.test(src)) x=x.replace(/\bappearance\b/giu,'appearing');
+            if(/\bendofuntor/iu.test(src)) x=x.replace(/\b(power|function|functor) generator\b/giu,'generating endofunctor').replace(/\bendofunctor generator\b/giu,'generating endofunctor');
+            x=x.replace(/\birrevatability\b/giu,'irrefutability').replace(/\bcollebra\b/giu,'coalgebra');
+            return x;
+          }
           const output=[];
           for(const item of inputs){
-            const r=await translator(pre(item.source),{src_lang:'spa_Latn',tgt_lang:'eng_Latn',max_new_tokens:512,num_beams:4});
-            output.push({...item,text:r[0].translation_text});
-            console.log(item.id,r[0].translation_text);
+            const sentences=splitSentences(item.source);
+            const pieces=[];
+            for(const s of sentences){
+              const r=await translator(s,{src_lang:'spa_Latn',tgt_lang:'eng_Latn',max_new_tokens:512,num_beams:4});
+              pieces.push(repair(s,r[0].translation_text));
+            }
+            const text=pieces.join(' ');
+            output.push({...item,text});
+            console.log(item.id,text);
           }
           fs.writeFileSync('translation_output.json',JSON.stringify(output,null,2));
           JS
           node translate.mjs
       - uses: actions/upload-artifact@v4
         with:
-          name: nllb-sample-output
+          name: nllb-sample-output-v2
           path: translation_output.json
           retention-days: 1

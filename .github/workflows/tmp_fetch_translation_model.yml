@@ -4,12 +4,13 @@ on:
   push:
     branches:
       - tmp/model-fetch-20260711
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: read
-
-tasks: {}
 
 jobs:
   fetch-model:

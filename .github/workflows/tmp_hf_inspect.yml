@@ -1,4 +1,4 @@
-name: Temporary NLLB model fetch
+name: Temporary NLLB translation test
 
 on:
   push:
@@ -12,51 +12,71 @@ permissions:
   contents: read
 
 jobs:
-  fetch:
+  translate:
     runs-on: ubuntu-latest
     steps:
-      - name: Download and split NLLB Q4 files
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp/model-fetch-20260711
+      - name: Download NLLB Q4 files
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p nllb/onnx parts
+          mkdir -p nllb/onnx
           base="https://huggingface.co/Xenova/nllb-200-distilled-600M/resolve/main"
           for f in config.json generation_config.json sentencepiece.bpe.model special_tokens_map.json tokenizer.json tokenizer_config.json quantize_config.json; do
             curl -fL --retry 5 --retry-delay 3 "$base/$f?download=true" -o "nllb/$f"
           done
           curl -fL --retry 5 --retry-delay 3 "$base/onnx/encoder_model_q4.onnx?download=true" -o nllb/onnx/encoder_model_q4.onnx
           curl -fL --retry 5 --retry-delay 3 "$base/onnx/decoder_model_merged_q4.onnx?download=true" -o nllb/onnx/decoder_model_merged_q4.onnx
-          tar -cf nllb-q4.tar nllb
-          split -b 300M -d -a 2 nllb-q4.tar parts/nllb-q4.part-
-          ls -lh parts
+      - name: Install Transformers.js
+        run: npm install @huggingface/transformers@3.7.2
+      - name: Translate samples
+        shell: bash
+        run: |
+          cat > translate.mjs <<'JS'
+          import fs from 'node:fs';
+          import { pipeline, env } from '@huggingface/transformers';
+          env.allowRemoteModels = false;
+          env.localModelPath = '.';
+          const glossary = [
+            ['reciprocidad cuerda–brana','string–brane reciprocity'],['reciprocidad cuerda-brana','string–brane reciprocity'],
+            ['irrebatibilidad endógena','endogenous irrefutability'],['sitio de comparecencia','site of appearing'],
+            ['residuo autogenerativo','self-generative residue'],['residuos absorbibles','absorbable residues'],
+            ['residuo absorbible','absorbable residue'],['clausura transfinita','transfinite closure'],
+            ['cierre transfinito','transfinite closure'],['coalgebra final','final coalgebra'],
+            ['ley distributiva residual','residual distributive law'],['métrica de alojamiento','accommodation metric'],
+            ['teorema maestro','master theorem'],['segunda variación','second variation'],['plano activo','active plane'],
+            ['campo antisimétrico','antisymmetric field'],['no factorización','non-factorization'],
+            ['producto fibrado','fiber product'],['cambio de carta','change of chart'],['cambios de carta','changes of chart'],
+            ['teoría de cuerdas','string theory'],['comparecencia','appearing'],['recartografía','recharting'],
+            ['recartografías','rechartings'],['alojamiento','accommodation'],['absorbibilidad','absorbability'],
+            ['clausura','closure'],['cierre','closure'],['residuos','residues'],['residuo','residue'],
+            ['cuerdas','strings'],['cuerda','string'],['branas','branes'],['brana','brane'],
+            ['carta','chart'],['cartas','charts'],['ente','entity'],['entes','entities'],
+            ['endofuntor','endofunctor'],['operada','operad'],['mónada','monad'],['comónada','comonad'],
+            ['holonomía','holonomy'],['fibrado','bundle'],['pegado','gluing']
+          ];
+          function pre(s){
+            let x=s;
+            for(const [a,b] of glossary.sort((u,v)=>v[0].length-u[0].length)){
+              x=x.replace(new RegExp(a.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'giu'),b);
+            }
+            return x;
+          }
+          const inputs=JSON.parse(fs.readFileSync('tmp_translation_inputs.json','utf8'));
+          const translator=await pipeline('translation','nllb',{dtype:'q4'});
+          const output=[];
+          for(const item of inputs){
+            const r=await translator(pre(item.source),{src_lang:'spa_Latn',tgt_lang:'eng_Latn',max_new_tokens:512,num_beams:4});
+            output.push({...item,text:r[0].translation_text});
+            console.log(item.id,r[0].translation_text);
+          }
+          fs.writeFileSync('translation_output.json',JSON.stringify(output,null,2));
+          JS
+          node translate.mjs
       - uses: actions/upload-artifact@v4
         with:
-          name: nllb-part-00
-          path: parts/nllb-q4.part-00
-          retention-days: 1
-      - uses: actions/upload-artifact@v4
-        with:
-          name: nllb-part-01
-          path: parts/nllb-q4.part-01
-          retention-days: 1
-      - uses: actions/upload-artifact@v4
-        with:
-          name: nllb-part-02
-          path: parts/nllb-q4.part-02
-          retention-days: 1
-      - uses: actions/upload-artifact@v4
-        with:
-          name: nllb-part-03
-          path: parts/nllb-q4.part-03
-          retention-days: 1
-      - uses: actions/upload-artifact@v4
-        with:
-          name: nllb-part-04
-          path: parts/nllb-q4.part-04
-          retention-days: 1
-      - uses: actions/upload-artifact@v4
-        with:
-          name: nllb-part-05
-          path: parts/nllb-q4.part-05
-          if-no-files-found: ignore
+          name: nllb-sample-output
+          path: translation_output.json
           retention-days: 1

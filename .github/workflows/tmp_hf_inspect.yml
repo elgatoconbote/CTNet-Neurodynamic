@@ -1,4 +1,4 @@
-name: Temporary NLLB translation test
+name: Temporary OPUS translation test
 
 on:
   push:
@@ -18,20 +18,20 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: tmp/model-fetch-20260711
-      - name: Download NLLB Q4 files
+      - name: Download OPUS Spanish-English model
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p nllb/onnx
-          base="https://huggingface.co/Xenova/nllb-200-distilled-600M/resolve/main"
-          for f in config.json generation_config.json sentencepiece.bpe.model special_tokens_map.json tokenizer.json tokenizer_config.json quantize_config.json; do
-            curl -fL --retry 5 --retry-delay 3 "$base/$f?download=true" -o "nllb/$f"
+          mkdir -p opus/onnx
+          base="https://huggingface.co/Xenova/opus-mt-es-en/resolve/main"
+          for f in config.json generation_config.json source.spm target.spm tokenizer.json tokenizer_config.json vocab.json special_tokens_map.json quantize_config.json; do
+            curl -fL --retry 5 --retry-delay 3 "$base/$f?download=true" -o "opus/$f"
           done
-          curl -fL --retry 5 --retry-delay 3 "$base/onnx/encoder_model_q4.onnx?download=true" -o nllb/onnx/encoder_model_q4.onnx
-          curl -fL --retry 5 --retry-delay 3 "$base/onnx/decoder_model_merged_q4.onnx?download=true" -o nllb/onnx/decoder_model_merged_q4.onnx
+          curl -fL --retry 5 --retry-delay 3 "$base/onnx/encoder_model_quantized.onnx?download=true" -o opus/onnx/encoder_model_quantized.onnx
+          curl -fL --retry 5 --retry-delay 3 "$base/onnx/decoder_model_merged_quantized.onnx?download=true" -o opus/onnx/decoder_model_merged_quantized.onnx
       - name: Install Transformers.js
         run: npm install @huggingface/transformers@3.7.2
-      - name: Translate samples sentence by sentence
+      - name: Translate samples
         shell: bash
         run: |
           cat > translate.mjs <<'JS'
@@ -40,7 +40,7 @@ jobs:
           env.allowRemoteModels = false;
           env.localModelPath = '.';
           const inputs=JSON.parse(fs.readFileSync('tmp_translation_inputs.json','utf8'));
-          const translator=await pipeline('translation','nllb',{dtype:'q4'});
+          const translator=await pipeline('translation','opus',{dtype:'q8'});
           function splitSentences(s){
             const a=s.match(/[^.!?;]+(?:[.!?;]+|$)/gu) || [s];
             return a.map(x=>x.trim()).filter(Boolean);
@@ -51,15 +51,13 @@ jobs:
             if(/\bfuente(s)?\b/iu.test(src)) x=x.replace(/\bfont(s)?\b/giu,(_,p)=>p?'sources':'source');
             if(/\bcomparecencia\b/iu.test(src)) x=x.replace(/\bappearance\b/giu,'appearing');
             if(/\bendofuntor/iu.test(src)) x=x.replace(/\b(power|function|functor) generator\b/giu,'generating endofunctor').replace(/\bendofunctor generator\b/giu,'generating endofunctor');
-            x=x.replace(/\birrevatability\b/giu,'irrefutability').replace(/\bcollebra\b/giu,'coalgebra');
-            return x;
+            return x.replace(/\birrevatability\b/giu,'irrefutability').replace(/\bcollebra\b/giu,'coalgebra');
           }
           const output=[];
           for(const item of inputs){
-            const sentences=splitSentences(item.source);
             const pieces=[];
-            for(const s of sentences){
-              const r=await translator(s,{src_lang:'spa_Latn',tgt_lang:'eng_Latn',max_new_tokens:512,num_beams:4});
+            for(const s of splitSentences(item.source)){
+              const r=await translator(s,{max_new_tokens:512,num_beams:5});
               pieces.push(repair(s,r[0].translation_text));
             }
             const text=pieces.join(' ');
@@ -71,6 +69,6 @@ jobs:
           node translate.mjs
       - uses: actions/upload-artifact@v4
         with:
-          name: nllb-sample-output-v2
+          name: opus-sample-output
           path: translation_output.json
           retention-days: 1

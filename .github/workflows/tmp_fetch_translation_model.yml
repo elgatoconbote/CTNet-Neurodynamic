@@ -16,21 +16,17 @@ jobs:
   fetch-model:
     runs-on: ubuntu-latest
     steps:
-      - name: Download model files
+      - name: Download Argos Spanish-English model
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p xenova-es-en/onnx
-          base="https://huggingface.co/Xenova/opus-mt-es-en/resolve/main"
-          for f in config.json generation_config.json source.spm target.spm tokenizer.json tokenizer_config.json vocab.json special_tokens_map.json quantize_config.json; do
-            curl -fL --retry 5 --retry-delay 3 "$base/$f?download=true" -o "xenova-es-en/$f"
-          done
-          curl -fL --retry 5 --retry-delay 3 "$base/onnx/encoder_model_quantized.onnx?download=true" -o xenova-es-en/onnx/encoder_model_quantized.onnx
-          curl -fL --retry 5 --retry-delay 3 "$base/onnx/decoder_model_merged_quantized.onnx?download=true" -o xenova-es-en/onnx/decoder_model_merged_quantized.onnx
-          du -ah xenova-es-en
+          curl -fL --retry 5 --retry-delay 3 \
+            "https://argos-net.com/v1/translate-es_en-1_9.argosmodel" \
+            -o translate-es_en-1_9.argosmodel
+          ls -lh translate-es_en-1_9.argosmodel
       - name: Upload model artifact
         uses: actions/upload-artifact@v4
         with:
-          name: xenova-opus-mt-es-en
-          path: xenova-es-en
+          name: argos-translate-es-en
+          path: translate-es_en-1_9.argosmodel
           retention-days: 1

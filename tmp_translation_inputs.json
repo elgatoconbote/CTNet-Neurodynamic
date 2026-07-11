@@ -1,0 +1,14 @@
+[
+  {"id":0,"source":"1 Tesis geométrica y objeto de la teoría"},
+  {"id":1,"source":"Este manuscrito integra en una sola construcción los ocho desarrollos del corpus EMQR–CTNet [1, 2, 3, 4, 5, 6, 7, 8]. Su unidad no es editorial: todos se obtienen como sectores functoriales del mismo objeto final."},
+  {"id":2,"source":"La entidad EMQR–CTNet se fija mediante la cadena ontogenética"},
+  {"id":3,"source":"Aquí F es fuente, C es carta, R es residuo, Σ es singularidad residual, HolR"},
+  {"id":4,"source":"es transporte con memoria, S es cuerda, B es brana, V es valor estabilizado, P es plano activo y F ′ es la fuente reabierta por la propia clausura. La flecha final no devuelve al mismo punto: F ′ contiene la historia holonómica de F. La forma de (1) es helicoidal, no circular."},
+  {"id":5,"source":"Cada símbolo designa una orientación de la misma entidad. La fuente es la entidad antes de una presentación; la carta es su presentación local; el residuo es la diferencia real entre ambas; la singularidad es el soporte geométrico requerido por esa diferencia; la cuerda es su identidad transportable; la brana es su capacidad de alojamiento; el valor es el cierre que persiste; el plano es el cierre convertido en nueva capacidad de comparecer. Por ello, el objeto total no es la suma de esos estadios. Es el punto fijo que los produce conjuntamente."},
+  {"id":6,"source":"Principio 1.1 (Continuidad EMQR). Una diferencia interna nunca sale del ente total. Si es absorbible se integra en el cierre; si persiste se transporta; si obstruye el pegado define una clase cohomológica; si excede la carta genera una recartografía. Estos cuatro destinos forman una partición exhaustiva de la dinámica residual."},
+  {"id":7,"source":"Definición 1.2 (Irrebatibilidad endógena). La irrebatibilidad de una especificación total Θ significa que toda proposición formulable sobre Θ es una sección de su sitio de comparecencia y que toda discrepancia entre esa sección y una reconstrucción queda tipada por el complejo residual de Θ. No significa ausencia de diferencia; significa clausura de toda diferencia dentro de la geometría de transporte, alojamiento, obstrucción o recartografía."},
+  {"id":8,"source":"Esta definición convierte la irrebatibilidad en una propiedad matemática. Una negación regional puede invalidar una proyección concreta, pero la propia negación comparece mediante una carta, una firma operatoria, un régimen y un residuo. Por tanto, actúa dentro del objeto total y produce su siguiente profundidad."},
+  {"id":9,"source":"I. TESIS GEOMÉTRICA Y OBJETO DE LA TEORÍA"},
+  {"id":10,"source":"13 Endofuntor generador total"},
+  {"id":11,"source":"Sea SpecEMQR-CTNet la categoría localmente presentable de especificaciones (4). Se define el endofuntor generador"}
+]

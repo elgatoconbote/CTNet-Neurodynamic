@@ -1,0 +1,30 @@
+name: Temporary HF model inspect
+
+on:
+  push:
+    branches:
+      - tmp/model-fetch-20260711
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch model metadata
+        run: |
+          curl -fL --retry 5 "https://huggingface.co/api/models/Xenova/nllb-200-distilled-600M" -o model.json
+          python - <<'PY'
+          import json
+          x=json.load(open('model.json'))
+          for s in x.get('siblings',[]): print(s.get('rfilename'))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nllb-model-metadata
+          path: model.json
+          retention-days: 1
